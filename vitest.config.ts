@@ -4,6 +4,7 @@ import { resolve } from "path";
 export default defineConfig({
   test: {
     environment: "jsdom",
+    fileParallelism: false,
     globals: true,
     testTimeout: 60_000,
     setupFiles: ["./vitest-setup.ts"],

@@ -72,11 +72,22 @@ export const jobOffers = mysqlTable(
     id: varchar("id", { length: 128 }).$defaultFn(() => createId()).primaryKey(),
     userId: varchar("user_id", { length: 128 }).notNull(),
     rawText: longtext("raw_text").notNull(),
+    normalizedText: longtext("normalized_text"),
     extractedKeywords: json("extracted_keywords").$type<string[]>().default([]),
     detectedCategory: varchar("detected_category", { length: 128 }),
+    confidence: decimal("confidence", { precision: 4, scale: 3 }),
+    status: mysqlEnum("status", ["draft", "analyzed", "awaiting_critical", "awaiting_optional", "ready", "generated", "failed"]).default("draft").notNull(),
+    questionsJson: json("questions_json").$type<OfferQuestion[]>(),
+    selectionJson: json("selection_json").$type<OfferSelection>(),
+    overridesJson: json("overrides_json").$type<OfferOverride[]>(),
     createdAt: datetime("created_at").$defaultFn(now).notNull(),
+    updatedAt: datetime("updated_at").$defaultFn(now).$onUpdate(() => new Date()).notNull(),
   },
-  (table) => [index("job_offers_user_idx").on(table.userId)],
+  (table) => [
+    index("job_offers_user_idx").on(table.userId),
+    index("m3_job_offers_user_status_idx").on(table.userId, table.status),
+    index("m3_job_offers_updated_idx").on(table.updatedAt),
+  ],
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -101,6 +112,31 @@ export const cvs = mysqlTable(
   (table) => [
     index("cvs_user_idx").on(table.userId),
     index("cvs_job_offer_idx").on(table.jobOfferId),
+  ],
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Job Offer Generations — atomic generation records.
+// ─────────────────────────────────────────────────────────────────────────────
+export const jobOfferGenerations = mysqlTable(
+  "job_offer_generations",
+  {
+    id: varchar("id", { length: 128 }).$defaultFn(() => createId()).primaryKey(),
+    jobOfferId: varchar("job_offer_id", { length: 128 }).notNull(),
+    generationRequestId: varchar("generation_request_id", { length: 128 }).notNull(),
+    cvId: varchar("cv_id", { length: 128 }),
+    status: mysqlEnum("status", ["running", "completed", "failed"]).default("running").notNull(),
+    atsScore: int("ats_score"),
+    suggestions: json("suggestions").$type<string[]>(),
+    error: text("error"),
+    createdAt: datetime("created_at").$defaultFn(now).notNull(),
+    updatedAt: datetime("updated_at").$defaultFn(now).$onUpdate(() => new Date()).notNull(),
+  },
+  (table) => [
+    uniqueIndex("m3_gen_offer_request_unique").on(table.jobOfferId, table.generationRequestId),
+    index("m3_gen_offer_idx").on(table.jobOfferId),
+    index("m3_gen_cv_idx").on(table.cvId),
+    index("m3_gen_status_idx").on(table.status),
   ],
 );
 
@@ -133,6 +169,9 @@ export const aiRuns = mysqlTable(
     id: varchar("id", { length: 128 }).$defaultFn(() => createId()).primaryKey(),
     userId: varchar("user_id", { length: 128 }).notNull(),
     interviewId: varchar("interview_id", { length: 128 }),
+    jobOfferId: varchar("job_offer_id", { length: 128 }),
+    generationRequestId: varchar("generation_request_id", { length: 128 }),
+    attempt: int("attempt").default(1).notNull(),
     model: varchar("model", { length: 128 }).notNull(),
     task: varchar("task", { length: 128 }).notNull(),
     status: mysqlEnum("status", ["running", "completed", "failed", "cancelled"]).default("running").notNull(),
@@ -147,6 +186,8 @@ export const aiRuns = mysqlTable(
     index("ai_runs_user_idx").on(table.userId),
     index("ai_runs_created_idx").on(table.createdAt),
     index("ai_runs_interview_idx").on(table.interviewId),
+    index("m3_ai_runs_offer_idx").on(table.jobOfferId),
+    index("m3_ai_runs_generation_idx").on(table.generationRequestId),
   ],
 );
 
@@ -226,6 +267,12 @@ export type CvContent = {
   achievements?: Achievement[];
   languages?: { language: string; level: string }[];
 };
+
+// M3 Job Offer types
+export type OfferStatus = "draft" | "analyzed" | "awaiting_critical" | "awaiting_optional" | "ready" | "generated" | "failed";
+export type OfferQuestion = { questionId: string; type: "critical" | "optional"; prompt: string; status: "pending" | "answered" | "skipped"; answer?: string };
+export type OfferSelection = { experienceIds: string[]; projectIds: string[]; skillCategories: string[] };
+export type OfferOverride = { profileItemId: string; section: string; action: "include" | "exclude"; reason: string };
 
 export type InterviewMessage = {
   role: "user" | "assistant" | "tool";

@@ -76,6 +76,10 @@ async function main() {
   const m1Path = path.join(migrationsDir, "0001_m2_interview.sql");
   await applyMigration(conn, m1Path, "Migration 0001");
 
+  // Apply 0002 (M3 Job Offers: extended job_offers, generations, ai_runs linkage)
+  const m2Path = path.join(migrationsDir, "0002_m3_job_offers.sql");
+  await applyMigration(conn, m2Path, "Migration 0002");
+
   // Verify
   const [tables] = await conn.query("SHOW TABLES");
   console.log("Tables:", tables.map((t) => Object.values(t)[0]).join(", "));
@@ -89,8 +93,16 @@ async function main() {
   const intColNames = intCols.map((c) => c.Field).join(", ");
   console.log("interviews columns:", intColNames);
 
+  // Verify M3 columns exist
+  const [offerCols] = await conn.query("SHOW COLUMNS FROM job_offers");
+  const offerColNames = offerCols.map((c) => c.Field).join(", ");
+  console.log("job_offers columns:", offerColNames);
+
+  const [genTables] = await conn.query("SHOW TABLES LIKE 'job_offer_generations'");
+  console.log("job_offer_generations exists:", genTables.length > 0 ? "yes" : "NO");
+
   await conn.end();
-  console.log("\npocketcv_test is ready with both migrations.");
+  console.log("\npocketcv_test is ready with all three migrations.");
 }
 
 main().catch((e) => {

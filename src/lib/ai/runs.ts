@@ -150,3 +150,19 @@ export function signalCancel(runId: string): boolean {
   controller.abort();
   return true;
 }
+
+// ── M3 Adaptation helpers ──────────────────────────────────────────────
+
+export async function createExtractionAttempt(p: { jobOfferId: string; userId: string; model: string; attempt: number; task: string }): Promise<{ id: string }> {
+  const id = createId();
+  await db.insert(aiRuns).values({ id, userId: p.userId, jobOfferId: p.jobOfferId, model: p.model, attempt: p.attempt, task: p.task, status: "running", tokensIn: 0, tokensOut: 0, costUsd: "0" });
+  return { id };
+}
+
+export async function completeExtractionAttempt(p: { attemptId: string; tokensIn: number; tokensOut: number; providerResponseId?: string; jobOfferId?: string }): Promise<void> {
+  await db.update(aiRuns).set({ status: "completed", tokensIn: p.tokensIn, tokensOut: p.tokensOut, providerResponseId: p.providerResponseId ?? null, jobOfferId: p.jobOfferId ?? undefined }).where(eq(aiRuns.id, p.attemptId));
+}
+
+export async function failExtractionAttempt(p: { attemptId: string; error: string; tokensIn: number; tokensOut: number; providerResponseId?: string }): Promise<void> {
+  await db.update(aiRuns).set({ status: "failed", error: p.error, tokensIn: p.tokensIn, tokensOut: p.tokensOut, providerResponseId: p.providerResponseId ?? null }).where(eq(aiRuns.id, p.attemptId));
+}

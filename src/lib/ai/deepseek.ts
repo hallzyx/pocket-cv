@@ -10,7 +10,8 @@
 // This adapter never fabricates pricing data.
 // ---------------------------------------------------------------------------
 
-import type { ChatProvider, ChatInput, ProviderEvent } from "./types";
+import type { ChatProvider, ChatInput, ProviderEvent, CompleteStructuredInput, StructuredOutput } from "./types";
+import { z } from "zod";
 
 const DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1";
 
@@ -25,6 +26,47 @@ export class DeepSeekProvider implements ChatProvider {
   constructor() {
     this.apiKey = process.env.DEEPSEEK_API_KEY ?? "";
     this.model = process.env.DEEPSEEK_MODEL ?? DEFAULT_MODEL;
+  }
+
+  async completeStructured<T>(
+    input: CompleteStructuredInput,
+    schema: { parse: (data: unknown) => T },
+    options?: { signal?: AbortSignal },
+  ): Promise<StructuredOutput<T>> {
+    if (!this.apiKey) throw new Error("DeepSeek API key not configured");
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60_000);
+    const combined = options?.signal ? AbortSignal.any([options.signal, controller.signal]) : controller.signal;
+    try {
+      if (combined.aborted) throw new DOMException("The operation was aborted", "AbortError");
+      const res = await fetch(`${DEEPSEEK_BASE_URL}/chat/completions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${this.apiKey}` },
+        body: JSON.stringify({
+          model: this.model,
+          messages: [{ role: "system", content: input.systemPrompt }, { role: "user", content: input.userPrompt }],
+          response_format: { type: "json_object" },
+          max_tokens: input.maxTokens ?? 2048,
+          temperature: input.temperature ?? 0.3,
+        }),
+        signal: combined,
+      });
+      if (!res.ok) {
+        const t = await res.text().catch(() => "");
+        throw new Error(`DeepSeek API error (HTTP ${res.status}): ${t}`);
+      }
+      const body = (await res.json()) as {
+        id?: string; choices?: Array<{ message?: { content?: string } }>; usage?: { prompt_tokens?: number; completion_tokens?: number };
+      };
+      const safeIn = typeof body.usage?.prompt_tokens === "number" && body.usage.prompt_tokens >= 0 && isFinite(body.usage.prompt_tokens) ? body.usage.prompt_tokens : 0;
+      const safeOut = typeof body.usage?.completion_tokens === "number" && body.usage.completion_tokens >= 0 && isFinite(body.usage.completion_tokens) ? body.usage.completion_tokens : 0;
+      function attachMeta(e: Error) { (e as any).responseId = body.id; (e as any).tokensIn = safeIn; (e as any).tokensOut = safeOut; return e; }
+      const content = body.choices?.[0]?.message?.content;
+      if (!content) throw attachMeta(new Error("Provider returned empty response"));
+      let parsed: unknown;
+      try { parsed = JSON.parse(content); } catch { throw attachMeta(new z.ZodError([{ code: z.ZodIssueCode.custom, message: "Invalid JSON response from provider", path: ["response"] }])); }
+      return { data: schema.parse(parsed), responseId: body.id, tokensIn: safeIn, tokensOut: safeOut };
+    } finally { clearTimeout(timeout); }
   }
 
   async validateModel(): Promise<void> {

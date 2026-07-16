@@ -51,6 +51,10 @@ const KNOWN_JSON_COLUMNS = new Set([
   "extracted_keywords",
   "content_json",
   "payload",
+  "questions_json",
+  "selection_json",
+  "overrides_json",
+  "suggestions",
 ]);
 
 /** mysql2-style Pool.query overload that accepts object options. */

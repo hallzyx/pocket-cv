@@ -59,12 +59,34 @@ export type InterviewMessage = {
   timestamp: string;
 };
 
+/** Input to ChatProvider.completeStructured */
+export type CompleteStructuredInput = {
+  systemPrompt: string;
+  userPrompt: string;
+  temperature?: number;
+  maxTokens?: number;
+};
+
+/** Output from ChatProvider.completeStructured */
+export type StructuredOutput<T> = {
+  data: T;
+  responseId?: string;
+  tokensIn: number;
+  tokensOut: number;
+};
+
 /** Chat provider contract — abstract over any LLM API */
 export interface ChatProvider {
   stream(
     input: ChatInput,
     options: { signal: AbortSignal },
   ): AsyncIterable<ProviderEvent>;
+  /** Structured (non-streaming) completion with JSON/Zod output validation */
+  completeStructured?<T>(
+    input: CompleteStructuredInput,
+    schema: { parse: (data: unknown) => T },
+    options?: { signal?: AbortSignal },
+  ): Promise<StructuredOutput<T>>;
   /** Validate that the configured model is available. Throws if unavailable. */
   validateModel(): Promise<void>;
   /** The model identifier this provider is configured for */
