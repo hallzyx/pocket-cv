@@ -1,36 +1,105 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# PocketCV
 
-## Getting Started
+CVs en formato Harvard optimizados para ATS, generados con IA.
 
-First, run the development server:
+## Requisitos
+
+- Node.js 20+
+- Docker (para MySQL local con docker-compose)
+- DeepSeek API key (para el agente de entrevista M2)
+
+## Configuración
+
+1. Copia `.env.example` a `.env` y completa los valores:
+
+```bash
+cp .env.example .env
+```
+
+2. Inicia la base de datos:
+
+```bash
+docker compose up -d
+```
+
+3. Ejecuta las migraciones:
+
+```bash
+npx drizzle-kit push
+```
+
+4. Para el agente de entrevista (M2), asegúrate de haber configurado:
+
+| Variable | Descripción | Ejemplo |
+|----------|-------------|---------|
+| `POCKETCV_DATABASE_URL` | Cadena de conexión MySQL | `mysql://pocketcv:pocketcvpass@localhost:3307/pocketcv` |
+| `DEEPSEEK_API_KEY` | API key de DeepSeek | `sk-...` |
+| `DEEPSEEK_MODEL` | Modelo DeepSeek (default: `deepseek-chat`) | `deepseek-chat` |
+
+Si la API key no está configurada, la ruta de mensajes devuelve un error controlado.
+
+### Límites del agente
+
+| Parámetro | Valor |
+|-----------|-------|
+| Tool calls máximos por run | 6 |
+| Timeout por turno | 60s |
+| Reintentos de provider (pre-output) | 1 |
+| Mensajes de transcript en contexto | 100 (~100k chars) |
+| Caracteres máximos por mensaje usuario | 8,000 |
+
+## Desarrollo
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
+# o
 bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abre [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Tests
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+# Tests unitarios y de componentes
+npx vitest run
 
-## Learn More
+# Tests de integración con MySQL (requiere docker compose up -d)
+npx vitest run src/app/api/interviews
+```
 
-To learn more about Next.js, take a look at the following resources:
+### Migraciones
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Las migraciones de base de datos están en `db/migrations/`. Se aplican con:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npx drizzle-kit push
+```
 
-## Deploy on Vercel
+Para crear una nueva migración:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npx drizzle-kit generate
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Estructura
+
+| Ruta | Descripción |
+|------|-------------|
+| `src/app/page.tsx` | Landing page |
+| `src/app/dashboard/` | Dashboard con lista de CVs |
+| `src/app/profile/` | Editor de perfil profesional |
+| `src/app/interview/` | Entrevista conversacional con IA (M2) |
+| `src/app/editor/[cvId]/` | Editor de CV individual |
+| `src/lib/ai/` | Core del agente: provider, tools, SSE, runs |
+| `src/lib/db/schema.ts` | Esquema de base de datos (Drizzle) |
+| `src/lib/profile/sync.ts` | Fusión canónica de perfil con dedup semántico |
+
+## Stack
+
+- [Next.js 16](https://nextjs.org) (App Router)
+- [Drizzle ORM](https://orm.drizzle.team) + MySQL
+- [Better Auth](https://better-auth.com)
+- [DeepSeek API](https://platform.deepseek.com) (agente conversacional)
+- [Vitest](https://vitest.dev) (tests)
+- LaTeX (compilación de PDF vía `lualatex`)

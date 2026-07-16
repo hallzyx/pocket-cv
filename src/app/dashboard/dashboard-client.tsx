@@ -140,13 +140,21 @@ export function DashboardClient({
               Manage your CVs — create new ones or edit existing.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowCreateDialog(true)}
-            className="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
-          >
-            Create CV
-          </button>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/interview"
+              className="rounded-lg border border-black/[.15] px-4 py-2 text-sm font-medium transition-colors hover:bg-zinc-100 dark:border-white/[.2] dark:hover:bg-zinc-800"
+            >
+              AI Interview
+            </Link>
+            <button
+              type="button"
+              onClick={() => setShowCreateDialog(true)}
+              className="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
+            >
+              Create CV
+            </button>
+          </div>
         </div>
 
         {error && (
@@ -175,16 +183,24 @@ export function DashboardClient({
               No CVs yet
             </h2>
             <p className="mx-auto mt-2 max-w-sm text-sm text-zinc-600 dark:text-zinc-400">
-              Create your first CV from your profile. You can edit, preview the
-              LaTeX source, and check the ATS score.
+              Start with an AI-guided interview to build your professional profile,
+              then create your first CV from it.
             </p>
-            <button
-              type="button"
-              onClick={() => setShowCreateDialog(true)}
-              className="mt-6 rounded-lg bg-black px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
-            >
-              Create your first CV
-            </button>
+            <div className="mt-6 flex items-center justify-center gap-3">
+              <Link
+                href="/interview"
+                className="rounded-lg border border-black/[.2] px-5 py-2.5 text-sm font-medium transition-colors hover:bg-zinc-100 dark:border-white/[.25] dark:hover:bg-zinc-800"
+              >
+                Start AI Interview
+              </Link>
+              <button
+                type="button"
+                onClick={() => setShowCreateDialog(true)}
+                className="rounded-lg bg-black px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
+              >
+                Create CV directly
+              </button>
+            </div>
           </div>
         )}
 

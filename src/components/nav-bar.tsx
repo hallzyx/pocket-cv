@@ -13,6 +13,7 @@ interface NavBarProps {
 const links = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/profile", label: "Profile" },
+  { href: "/interview", label: "Interview" },
 ];
 
 export function NavBar({ email, name }: NavBarProps) {
