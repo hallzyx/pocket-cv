@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { getUserOrNull } from "@/lib/auth/session";
-import { createOffer, getOffers, OfferError } from "@/lib/job-offers/service";
+import { createOffer, getOffers, publicOffer, OfferError } from "@/lib/job-offers/service";
 
 export async function GET() {
   const user = await getUserOrNull();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  return NextResponse.json(await getOffers(user.id));
+  return NextResponse.json((await getOffers(user.id)).map(publicOffer));
 }
 
 export async function POST(request: Request) {

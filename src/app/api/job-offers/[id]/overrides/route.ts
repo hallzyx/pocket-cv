@@ -1,0 +1,9 @@
+import { NextResponse } from "next/server";
+import { getUserOrNull } from "@/lib/auth/session";
+import { deleteOfferOverride, getOfferQuestionState, saveOfferOverride, OfferError } from "@/lib/job-offers/service";
+import { deleteOverrideSchema, offerOverrideSchema } from "@/lib/job-offers/schemas";
+const handle = (error: unknown) => error instanceof OfferError ? NextResponse.json(error.body, { status: error.status }) : NextResponse.json({ error: "invalid-request" }, { status: 400 });
+async function auth() { return getUserOrNull(); }
+export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) { const user = await auth(); if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 }); try { return NextResponse.json((await getOfferQuestionState((await params).id, user.id)).overrides); } catch (e) { return handle(e); } }
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) { const user = await auth(); if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 }); try { const parsed = offerOverrideSchema.safeParse(await request.json()); if (!parsed.success) return NextResponse.json({ error: "invalid-override" }, { status: 400 }); return NextResponse.json((await saveOfferOverride((await params).id, user.id, parsed.data)).overrides); } catch (e) { return handle(e); } }
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) { const user = await auth(); if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 }); try { const parsed = deleteOverrideSchema.safeParse(await request.json()); if (!parsed.success) return NextResponse.json({ error: "invalid-override" }, { status: 400 }); const body = parsed.data; return NextResponse.json((await deleteOfferOverride((await params).id, user.id, body.profileItemId, body.section)).overrides); } catch (e) { return handle(e); } }
