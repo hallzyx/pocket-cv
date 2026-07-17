@@ -47,7 +47,7 @@ describe("GET /api/pdf/[cvId]", () => {
 
     // Default: CV belongs to user-1
     dbChain._setData([
-      { id: "cv-1", userId: "user-1", title: "My CV", contentJson: { personalInfo: {}, experiences: [], education: [], skills: [] }, texSource: null },
+      { id: "cv-1", userId: "user-1", title: "AI CV", source: "ai", jobOfferId: "offer-1", contentJson: { personalInfo: {}, experiences: [], education: [], skills: [] }, texSource: "saved-ai-tex" },
     ]);
   });
 
@@ -128,5 +128,17 @@ describe("GET /api/pdf/[cvId]", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("Content-Type")).toBe("application/pdf");
     expect(response.headers.get("Content-Disposition")).toBe('attachment; filename="cv.pdf"');
+  });
+
+  it("reuses saved LaTeX for an AI CV", async () => {
+    const compile = await import("@/lib/latex/compile");
+    vi.mocked(compile.compileLatex).mockResolvedValue(Buffer.from("%PDF-1.4 fake"));
+
+    const { GET } = await import("./[cvId]/route");
+    await GET(new Request("http://localhost:3000/api/pdf/cv-1") as never, {
+      params: Promise.resolve({ cvId: "cv-1" }),
+    });
+
+    expect(compile.compileLatex).toHaveBeenCalledWith("saved-ai-tex");
   });
 });

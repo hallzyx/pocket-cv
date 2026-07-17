@@ -57,6 +57,9 @@ export async function PATCH(
   if (cv.userId !== user.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+  if (cv.source === "ai") {
+    return NextResponse.json({ error: "ai-cv-readonly" }, { status: 409 });
+  }
 
   const body = await request.json();
   const updates: Record<string, unknown> = {};

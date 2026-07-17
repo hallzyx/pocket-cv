@@ -323,6 +323,57 @@ describe("CV CRUD — integration (MySQL-backed)", () => {
         expect.objectContaining({ fullName: "Updated Name" }),
       );
     });
+
+    it("rejects owner edits to AI CVs without changing content or syncing", async () => {
+      const cvId = createId();
+      const content = sampleContent({ summary: "Immutable" });
+      await db.insert(cvs).values({
+        id: cvId,
+        userId: TEST_USER_ID,
+        title: "Generated CV",
+        contentJson: content,
+        texSource: "saved-tex",
+        source: "ai",
+        jobOfferId: null,
+      });
+
+      const { PATCH } = await import("./[cvId]/route");
+      const response = await PATCH(
+        new Request(`http://localhost:3000/api/cvs/${cvId}`, {
+          method: "PATCH",
+          body: JSON.stringify({ title: "Hacked" }),
+          headers: { "Content-Type": "application/json" },
+        }) as never,
+        { params: Promise.resolve({ cvId }) },
+      );
+
+      expect(response.status).toBe(409);
+      expect(await response.json()).toEqual({ error: "ai-cv-readonly" });
+      const [saved] = await db.select().from(cvs).where(eq(cvs.id, cvId)).limit(1);
+      expect(saved.title).toBe("Generated CV");
+      expect(saved.contentJson).toEqual(content);
+    });
+
+    it("preserves the existing 403 contract for an AI CV owned by another user", async () => {
+      const cvId = createId();
+      await db.insert(cvs).values({
+        id: cvId,
+        userId: OTHER_USER_ID,
+        title: "Other Generated CV",
+        contentJson: sampleContent(),
+        source: "ai",
+      });
+      mockGetUserOrNull.mockResolvedValue({ id: TEST_USER_ID, email: "test@example.com", name: "Test User" });
+
+      const { PATCH } = await import("./[cvId]/route");
+      const response = await PATCH(
+        new Request(`http://localhost:3000/api/cvs/${cvId}`, { method: "PATCH", body: "{}" }) as never,
+        { params: Promise.resolve({ cvId }) },
+      );
+
+      expect(response.status).toBe(403);
+      expect(await response.json()).toEqual({ error: "Forbidden" });
+    });
   });
 
   // ----- 5. DELETE /api/cvs/[cvId] deletes the owned CV and returns 204 ----
